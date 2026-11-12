@@ -8,7 +8,8 @@ from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageFont
 
-from i18n import tr
+from config import CFG
+from i18n import t, tr
 
 
 class _Draw(ImageDraw.ImageDraw):
@@ -46,20 +47,47 @@ def _kr(size: int, index: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(KR, size, index=0 if os.name == "nt" else index)
 
 
+def _mirabox_rows(left: list[tuple[str, str]], right: list[tuple[str, str]]) -> bytes:
+    from mirabox_render import BG, fit_text, font, readable_color
+
+    image = Image.new('RGB', (200, 100), BG)
+    draw = ImageDraw.Draw(image)
+    face = font(16)
+    for column, rows in enumerate((left, right)):
+        for row, (text, color) in enumerate(rows[:5]):
+            draw.text((column * 100 + 6, 5 + row * 18), fit_text(tr(text), face, 88),
+                      font=face, fill=readable_color(color), anchor='lt')
+    buffer = io.BytesIO()
+    image.save(buffer, 'PNG')
+    return buffer.getvalue()
+
+
 def render_clock(now: datetime | None = None, status: list[tuple[str, str]] | None = None) -> bytes:
     """시:분 + 요일/날짜 + 하단 상태 칩 + 하루 진행 막대.
 
     status: [(텍스트, 색), ...] 하단에 점 칩으로 표시
     """
     now = now or datetime.now()
+    if CFG.get('device') == 'mirabox':
+        from d200 import Button
+        from mirabox_render import render_panel
+
+        # shortcut: show the first three status chips, add another status view if more must fit.
+        lines = [text for text, _ in status or []]
+        weekday = t(WEEKDAYS[now.weekday()][0], tr(WEEKDAYS[now.weekday()])[:3])
+        return render_panel(
+            Button(header=t('시계', 'Clock'), title=now.strftime('%H:%M'), sub=f'{now.month}/{now.day} {weekday}'),
+            Button(header=lines[0] if lines else WEEKDAYS[now.weekday()],
+                   title=lines[1] if len(lines) > 1 else '', sub=lines[2] if len(lines) > 2 else ''),
+        )
     img = Image.new("RGB", (W, H), "#0d0e14")
     d = _Draw(img)
 
     # 은은한 세로 그라데이션 배경
     top, bottom = (22, 24, 36), (12, 13, 19)
     for y in range(H):
-        t = y / (H - 1)
-        d.line([(0, y), (W, y)], fill=tuple(int(a + (b - a) * t) for a, b in zip(top, bottom)))
+        blend = y / (H - 1)
+        d.line([(0, y), (W, y)], fill=tuple(int(a + (b - a) * blend) for a, b in zip(top, bottom)))
 
     # 시간
     hh, mm = now.strftime("%H"), now.strftime("%M")
@@ -110,6 +138,20 @@ if __name__ == "__main__":
 
 def render_timer(remaining: float, state: str, end_at: float | None, color: str = "#f7768e") -> bytes:
     """뽀모도로용 넓은 칸: 남은 mm:ss 크게 + 상태 + 끝나는 시각."""
+    if CFG.get('device') == 'mirabox':
+        from d200 import Button
+        from mirabox_render import render_panel
+
+        minutes, seconds = divmod(int(round(remaining)), 60)
+        label = {'running': '집중 중', 'paused': '일시정지', 'done': '완료!', 'setup': '시간 선택'}.get(state, '')
+        end = datetime.fromtimestamp(end_at).strftime('%H:%M 종료') if state == 'running' and end_at else ''
+        action = {'running': '일시정지', 'paused': t('계속', 'Resume'), 'done': t('닫기', 'Close'),
+                  'setup': '선택'}.get(state, '')
+        return render_panel(
+            Button(header=label, title=f'{minutes:02d}:{seconds:02d}', sub=end, accent=color),
+            Button(header=t('짧게', 'Tap'), title=action,
+                   sub=t('길게 취소', 'Hold cancel') if state in ('running', 'paused') else ''),
+        )
     img = Image.new("RGB", (W, H), "#0d0e14")
     d = _Draw(img)
     m, s = divmod(int(round(remaining)), 60)
@@ -135,6 +177,20 @@ WT_COLORS = {"방치": "#e0af68", "정리 가능": "#9ece6a", "오래됨": "#ff9
 
 def render_worktree_summary(items, hint: str = "눌러서 워크트리 보기") -> bytes:
     """작업 현황 페이지의 넓은 칸: 워크트리 수 + 상태별 칩."""
+    if CFG.get('device') == 'mirabox':
+        from d200 import Button
+        from mirabox_render import render_panel
+
+        if items is None:
+            return render_panel(Button(header='워크트리', title=t('미연결', 'Offline'), accent='#f7768e'),
+                                Button(header='워크트리', title='보기', sub=t('눌러서 열기', 'Tap to open')))
+        counts = {state: sum(item.state == state for item in items) for state in WT_COLORS}
+        return render_panel(
+            Button(header='워크트리', title=f'{len(items)}개', sub=t('눌러서 보기', 'Tap to view')),
+            Button(header=f'방치 {counts["방치"]}\n오래됨 {counts["오래됨"]}',
+                   title=f'작업 {counts["작업"]}', sub=t(f'정리가능 {counts["정리 가능"]}',
+                                                             f'Mergeable {counts["정리 가능"]}')),
+        )
     img = Image.new("RGB", (W, H), "#0d0e14")
     d = _Draw(img)
     d.text((24, 30), "워크트리", font=_kr(26, 6), fill="#bb9af7", anchor="lm")
@@ -159,6 +215,23 @@ def render_worktree_summary(items, hint: str = "눌러서 워크트리 보기") 
 
 def render_message(title: str, lines: list[str], color: str = "#bb9af7") -> bytes:
     """워크트리 페이지의 넓은 칸: 안내/결과 메시지."""
+    if CFG.get('device') == 'mirabox':
+        from d200 import Button
+        from mirabox_render import fit_text, font, render_panel, wrap_text
+
+        if lines == ['짧게: Herdr 에서 열기', '길게 2번: 정리 가능 → 삭제',
+                     '길게 2번: 그 외 → 총괄에 정리 요청']:
+            return render_panel(Button(header=title, title=t('짧게 열기', 'Tap to open'), sub='Herdr'),
+                                Button(header=t('정리 가능→삭제', 'Mergeable→delete'),
+                                       title=t('길게 2번', 'Hold twice'), sub=t('그외 요청', 'Else request'), accent=color))
+        rows = []
+        face = font(16)
+        for line in lines[:4]:
+            rows.extend(wrap_text(tr(line), face, 88, max_lines=9))
+        if len(rows) > 9:
+            rows = rows[:8] + [fit_text(' '.join(rows[8:]), face, 88)]
+        return _mirabox_rows([(title, color)] + [(line, '#ffffff') for line in rows[:4]],
+                             [(line, '#ffffff') for line in rows[4:9]])
     img = Image.new("RGB", (W, H), "#0d0e14")
     d = _Draw(img)
     d.text((24, 34), title, font=_kr(28, 6), fill=color, anchor="lm")
@@ -171,6 +244,19 @@ def render_message(title: str, lines: list[str], color: str = "#bb9af7") -> byte
 
 def render_market(indices, breadth: tuple[int, int], view_label: str) -> bytes:
     """히트맵 페이지의 넓은 칸: KOSPI·KOSDAQ + 상승/하락 종목 수 + 지금 보기."""
+    if CFG.get('device') == 'mirabox':
+        rise, fall = breadth
+        status = '장중' if any(index.status == 'OPEN' for index in indices) else '장 마감'
+        columns = []
+        for i, index in enumerate(indices[:2]):
+            change = '-' if index.change is None else f'{index.change:+.2f}%'
+            color = '#e5484d' if (index.change or 0) >= 0 else '#3b6ff5'
+            columns.append([(index.name, '#7dcfff'), (index.price, '#ffffff'), (change, color),
+                            (f'▲ {rise}' if i == 0 else f'▼ {fall}', '#ffffff'),
+                            (view_label if i == 0 else status, '#ffffff')])
+        while len(columns) < 2:
+            columns.append([(view_label, '#7dcfff'), ('데이터 없음', '#ffffff')])
+        return _mirabox_rows(*columns)
     img = Image.new("RGB", (W, H), "#0d0e14")
     d = _Draw(img)
     for i, ix in enumerate(indices[:2]):

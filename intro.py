@@ -17,6 +17,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from clock import EMOJI_FONT, _Draw, _kr, _sf
+from config import CFG
+from i18n import t, tr
 
 ROOT = Path(__file__).parent
 SEEN = Path.home() / ".cache" / "d200" / "seen_version.json"
@@ -190,6 +192,17 @@ def _icon(name: str, size: int) -> Image.Image | None:
 @lru_cache(maxsize=32)
 def shortcut_tile(title: str, sub: str, icon: str, color: str) -> bytes:
     """바로가기 칸: 색 그라데이션 카드 + 앱 아이콘 + 이름."""
+    if CFG.get('device') == 'mirabox':
+        from mirabox_render import BG, fit_text, font, readable_color
+        image = Image.new('RGB', (100, 100), BG)
+        draw = _Draw(image)
+        ic = _icon(icon, 40)
+        if ic:
+            image.paste(ic, (50 - ic.width // 2, 3), ic)
+        draw.text((50, 47), fit_text(tr(title), font(20), 88), font=font(20),
+                  fill=readable_color(color), anchor='mt')
+        draw.text((50, 78), fit_text(tr(sub), font(), 88), font=font(), fill='white', anchor='mt')
+        return _png(image)
     col = _rgb(color)
     img = Image.new("RGB", (SIZE, SIZE), (12, 13, 20))
     card = Image.new("RGB", (SIZE, SIZE))
@@ -216,6 +229,18 @@ def shortcut_tile(title: str, sub: str, icon: str, color: str) -> bytes:
 
 def home_wide(notes: list[str], fresh: bool, pending: list[str], behind: int, page: int = 0) -> bytes:
     """넓은 칸: 업데이트 내용. 새 버전이 있으면 그 내용과 '2초 누르기' 안내를 먼저."""
+    if CFG.get('device') == 'mirabox':
+        from clock import render_message
+        items = pending if behind else notes
+        per = 3 if behind else 4
+        pages = max(1, math.ceil(len(items) / per))
+        shown = items[(page % pages) * per:(page % pages) * per + per] or ['변경 내용을 읽지 못했어요']
+        title = f'새 버전 {behind}개' if behind else ('새로 바뀐 것' if fresh else '최근 업데이트')
+        if behind:
+            shown = [t('2초 누르면 업데이트', 'Hold 2s to update'), *shown[:3]]
+        if pages > 1:
+            title += f' {page % pages + 1}/{pages}'
+        return render_message(title, shown)
     img = Image.new("RGB", WIDE, (13, 14, 20))
     d = _Draw(img)
     if behind:

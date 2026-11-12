@@ -11,7 +11,8 @@ import threading
 import hid
 from PIL import Image
 
-from d200 import D200, PACKET, Button, InputEvent, render_icon
+from d200 import D200, PACKET, Button, InputEvent
+from mirabox_render import render_icon
 
 VID, PID = 0x6603, 0x1014
 KEYS = (13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3)

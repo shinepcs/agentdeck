@@ -18,10 +18,12 @@ import machines
 class WindowsTests(unittest.TestCase):
     def test_clock_and_button_render_with_installed_fonts(self):
         from clock import render_clock
+        import clock
         from d200 import Button, render_icon
         from PIL import Image
 
-        self.assertEqual(Image.open(io.BytesIO(render_clock())).size, (458, 196))
+        with patch.dict(clock.CFG, device='d200'):
+            self.assertEqual(Image.open(io.BytesIO(render_clock())).size, (458, 196))
         self.assertEqual(Image.open(io.BytesIO(render_icon(Button(title="한글")))).size, (196, 196))
 
     def test_local_machine_reports_resources(self):
