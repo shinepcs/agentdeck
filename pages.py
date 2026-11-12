@@ -139,7 +139,7 @@ def page_summary(llms: list[LLM], studio: StudioState, now: datetime, blink_on: 
         else:
             tag = "과속" if pc > 10 else ("여유" if pc < -10 else "적정")
             col = RED if pc > 10 else (GREEN if pc < -10 else YELLOW)
-            p[5 + i] = Button(header=f"{m.name.split()[0]} 페이스", title=tag, sub=f"시간 대비 {pc:+.0f}%p", bg=BG, accent=col)
+            p[5 + i] = Button(header=f"{m.name.split()[0]} 페이스", title=tag, sub=f"{pc:+.0f}%p", bg=BG, accent=col)
     if studio.attention or studio.done:  # 결정 필요(노랑) / 완료 알림(초록): 깜빡임, 누르면 해당 창으로
         title, color = (f"결정 {studio.attention}", YELLOW) if studio.attention else (f"완료 {studio.done}", GREEN)
         p[8] = Button(header="스튜디오", title=title, sub="눌러서 이동",
