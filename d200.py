@@ -39,7 +39,7 @@ SMALL_BACKGROUND = 2  # 작은 창 모드: 배경 이미지
 IN_BUTTON = 0x0101
 IN_DEVICE_INFO = 0x0303
 
-FONT_PATH = "/System/Library/Fonts/AppleSDGothicNeo.ttc"  # 한글 지원
+FONT_PATH = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "malgun.ttf") if os.name == "nt" else "/System/Library/Fonts/AppleSDGothicNeo.ttc"
 
 
 @dataclass

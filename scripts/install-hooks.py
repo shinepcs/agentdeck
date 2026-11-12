@@ -15,13 +15,17 @@ import os
 import re
 import shutil
 import sys
+from pathlib import Path
+import tomllib
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from i18n import t  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(ROOT, "hooks", "agent_hook.py")
-CLAUDE_CMD = f'python3 "{HOOK}" claude'
+PYTHON = sys.executable if os.name == 'nt' else 'python3'
+CLAUDE_CMD = f'"{PYTHON}" "{HOOK}" claude'
 CLAUDE_SETTINGS = os.path.expanduser("~/.claude/settings.json")
 CODEX_CONFIG = os.path.expanduser("~/.codex/config.toml")
 EVENTS = {  # 이벤트 → matcher (도구 이벤트만 "*")
@@ -32,7 +36,10 @@ EVENTS = {  # 이벤트 → matcher (도구 이벤트만 "*")
 
 def backup(path: str) -> None:
     if os.path.exists(path):
-        shutil.copy2(path, path + ".bak-agentdeck")
+        target = path + '.bak-agentdeck'
+        if os.path.exists(target):
+            target += f'-{time.time_ns()}'
+        shutil.copy2(path, target)
 
 
 def is_ours(entry: dict) -> bool:
@@ -40,7 +47,7 @@ def is_ours(entry: dict) -> bool:
 
 
 def claude(install: bool) -> None:
-    data = json.load(open(CLAUDE_SETTINGS)) if os.path.exists(CLAUDE_SETTINGS) else {}
+    data = json.loads(Path(CLAUDE_SETTINGS).read_text(encoding='utf-8')) if os.path.exists(CLAUDE_SETTINGS) else {}
     hooks = data.setdefault("hooks", {})
     for ev, matcher in EVENTS.items():
         arr = [e for e in hooks.get(ev, []) if not is_ours(e)]  # 우리 것 제거 (재설치 시 중복 방지)
@@ -55,7 +62,7 @@ def claude(install: bool) -> None:
             hooks.pop(ev, None)
     backup(CLAUDE_SETTINGS)
     os.makedirs(os.path.dirname(CLAUDE_SETTINGS), exist_ok=True)
-    with open(CLAUDE_SETTINGS, "w") as fp:
+    with open(CLAUDE_SETTINGS, "w", encoding='utf-8') as fp:
         json.dump(data, fp, indent=2, ensure_ascii=False)
     print(t("설치" if install else "제거", "Installed" if install else "Removed"), t("Claude Code 훅:", "Claude Code hooks:"), CLAUDE_SETTINGS)
 
@@ -64,10 +71,12 @@ def codex(install: bool) -> None:
     if not os.path.exists(CODEX_CONFIG):
         print(t("Codex 설정 없음:", "No Codex config:"), CODEX_CONFIG)
         return
-    text = open(CODEX_CONFIG).read()
-    m = re.search(r"^notify\s*=\s*(\[.*?\])\s*$", text, re.M | re.S)
-    current = json.loads(m.group(1)) if m else None
-    ours = ["python3", HOOK, "codex", "--"]
+    text = Path(CODEX_CONFIG).read_text(encoding='utf-8')
+    m = re.search(r"^notify[ \t]*=[ \t]*(\[.*?\])[ \t]*(?:#[^\r\n]*)?$", text, re.M | re.S)
+    current = tomllib.loads(text).get('notify')
+    if current is not None and not m:
+        raise ValueError('Cannot locate the existing notify setting safely')
+    ours = [PYTHON, HOOK, "codex", "--"]
     if current and len(current) >= 4 and current[1].endswith("agent_hook.py"):
         original = current[4:]  # 이미 우리 래퍼: 원래 명령만 꺼냄
     else:
@@ -78,10 +87,11 @@ def codex(install: bool) -> None:
         text = text[:m.start()] + line + text[m.end():]
     elif line:
         text = line + "\n" + text
+    tomllib.loads(text)  # Validate before touching the existing config.
     backup(CODEX_CONFIG)
-    open(CODEX_CONFIG, "w").write(text)
+    Path(CODEX_CONFIG).write_text(text, encoding='utf-8')
     print(t("설치" if install else "제거", "Installed" if install else "Removed"), "Codex notify:", CODEX_CONFIG,
-          t("(기존:", "(previous:"), original or t("없음", "none"), ")")
+          f'(preserved {len(original)} existing command arguments)')
 
 
 if __name__ == "__main__":

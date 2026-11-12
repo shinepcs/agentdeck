@@ -18,7 +18,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from clock import _Draw, _kr
+from clock import EMOJI_FONT, _Draw, _kr
 from sfx import play
 
 BOARD = 10
@@ -34,7 +34,6 @@ except Exception as _te:
     print(f"tycoon load error: {_te}", flush=True)
     Tycoon = None
 LOWER_IS_BETTER = {"pairs"}  # 짝 맞추기는 시도 횟수가 적을수록 좋은 기록
-EMOJI_FONT = "/System/Library/Fonts/Apple Color Emoji.ttc"
 PAIR_CARDS = ["🐟", "🐙", "🦀", "🐢", "🦈"]  # 어항 친구들 5쌍
 SLOT_SYMBOLS = ["🍒", "🍋", "🔔", "⭐", "💎", "7"]
 SLOT_PAY = {"7": 50, "💎": 30, "⭐": 15, "🔔": 10, "🍋": 6, "🍒": 5}  # 세 개가 같을 때

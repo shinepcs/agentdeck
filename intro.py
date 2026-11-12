@@ -16,7 +16,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from clock import _Draw, _kr, _sf
+from clock import EMOJI_FONT, _Draw, _kr, _sf
 
 ROOT = Path(__file__).parent
 SEEN = Path.home() / ".cache" / "d200" / "seen_version.json"
@@ -159,7 +159,6 @@ def version_text() -> str:
 
 
 # ---------- 홈 (바로가기) ----------
-EMOJI_FONT = "/System/Library/Fonts/Apple Color Emoji.ttc"
 
 
 @lru_cache(maxsize=32)

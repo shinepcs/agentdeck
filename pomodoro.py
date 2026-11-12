@@ -77,6 +77,10 @@ class Pomodoro:
 
 def notify_done(minutes: float) -> None:
     """맥 알림 + 소리 3번."""
+    if os.name == 'nt':
+        import winsound
+        winsound.MessageBeep()
+        return
     msg = t(f"{minutes:.0f}분 집중 완료! 잠깐 쉬어가세요.", f"{minutes:.0f} min focus done! Take a short break.")
     title = t("뽀모도로", "Pomodoro")
     subprocess.Popen(["osascript", "-e", f'display notification "{msg}" with title "{title}" sound name "Glass"'])

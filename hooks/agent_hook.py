@@ -85,6 +85,17 @@ def _write(rec: dict) -> None:
 
 def _base(agent: str, session: str, cwd: str) -> dict:
     ppid = os.getppid()  # 훅을 띄운 에이전트 프로세스
+    if os.name == 'nt':
+        try:
+            import psutil
+            executable = 'claude.exe' if agent == 'claude-code' else 'codex.exe'
+            # Windows inserts a short-lived shell between the hook and agent.
+            for parent in psutil.Process().parents():
+                if parent.name().lower() == executable:
+                    ppid = parent.pid
+                    break
+        except Exception:
+            pass
     args = _ps(ppid, "args")
     return {
         "id": f"{agent}-{session}",

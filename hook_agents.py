@@ -13,6 +13,7 @@ import json
 import os
 import socket
 import subprocess
+import sys
 
 from remote_herdr import StudioState, Workspace
 
@@ -22,13 +23,20 @@ STALE_SEC = 24 * 3600
 # 원격(또는 로컬)에서 실행: 살아 있는 세션만 JSON 목록으로 출력, 죽은 세션 파일은 삭제
 SCAN = r'''
 import glob, json, os, time
+if os.name == "nt":
+    import psutil
 out = []
 for p in glob.glob(os.path.expanduser("%s/*.json")):
     try:
-        d = json.load(open(p))
+        with open(p, encoding="utf-8") as fp:
+            d = json.load(fp)
         alive = True
         try:
-            os.kill(int(d.get("pid") or 0), 0)
+            pid = int(d.get("pid") or 0)
+            if os.name == "nt":
+                alive = pid > 0 and psutil.pid_exists(pid)
+            else:
+                os.kill(pid, 0)
         except Exception:
             alive = False
         if not alive or time.time() - d.get("updated", 0) > %d:
@@ -46,10 +54,10 @@ LOCAL_HOST = socket.gethostname().split(".")[0]
 
 
 def _scan(host: str | None) -> list[dict]:
-    cmd = ["python3", "-"] if host is None else \
+    cmd = [sys.executable, "-"] if host is None else \
         ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, "python3", "-"]
     try:
-        r = subprocess.run(cmd, input=SCAN, capture_output=True, text=True, timeout=15)
+        r = subprocess.run(cmd, input=SCAN, capture_output=True, text=True, encoding="utf-8", timeout=15)
         items = json.loads(r.stdout)
     except Exception:
         return []

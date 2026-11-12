@@ -27,7 +27,7 @@ from typing import Callable
 
 from PIL import Image, ImageDraw, ImageFont
 
-from clock import _Draw, _kr
+from clock import EMOJI_FONT, _Draw, _kr
 from i18n import t
 from sfx import play
 
@@ -40,7 +40,6 @@ BW, BH = 4 * SIZE + 3 * GAP, 2 * SIZE + GAP  # 판 캔버스 (왼쪽 4열 × 2�
 BOARD_KEYS = [0, 1, 2, 3, 5, 6, 7, 8]
 BTN_A, BTN_B = 4, 9
 FPS = 2  # 덱은 새 그림을 1초에 1~2장만 받아들인다 (더 보내면 화면이 밀림)
-EMOJI_FONT = "/System/Library/Fonts/Apple Color Emoji.ttc"
 
 START_CASH, PASS_BONUS, MAX_ROUNDS = 1500, 150, 24  # MAX_ROUNDS: 한 사람당 차례 수
 BG = (14, 16, 24)

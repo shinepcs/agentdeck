@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -55,6 +56,25 @@ class Volume:
 
 
 def _probe(name: str, target: str | None) -> MachineStat:
+    if target is None and os.name == "nt":
+        try:
+            import psutil
+
+            mem = psutil.virtual_memory()
+            disk = psutil.disk_usage(os.environ.get("SystemDrive", "C:") + os.sep)
+            volumes = []
+            for part in psutil.disk_partitions():
+                try:
+                    usage = psutil.disk_usage(part.mountpoint)
+                    volumes.append(Volume(part.mountpoint, name, True, usage.total / 1024**3, usage.free / 1024**3))
+                except OSError:
+                    continue
+            return MachineStat(name, True, cpu=psutil.cpu_percent(interval=0.1), mem_used=mem.percent,
+                               mem_gb=mem.total / 1024**3, disk_used=disk.percent,
+                               disk_free_gb=disk.free / 1024**3,
+                               uptime_days=(time.time() - psutil.boot_time()) / 86400, volumes=volumes)
+        except Exception:
+            return MachineStat(name, False)
     cmd = ["bash", "-s"] if target is None else \
         ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", target, "bash", "-s"]
     try:

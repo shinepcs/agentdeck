@@ -189,6 +189,11 @@ def view_data(view: str, ttl: float = 60) -> list[Quote] | None:
 
 def open_heattab() -> None:
     """크롬에 새 탭을 연다 (HeatTab 확장이 새 탭을 대체하므로 히트맵이 뜬다)."""
+    import os
+    if os.name == 'nt':
+        import webbrowser
+        webbrowser.open('https://heattab.app')
+        return
     import subprocess
 
     subprocess.run(["osascript", "-e", '''tell application "Google Chrome"

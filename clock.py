@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageFont
@@ -22,6 +23,12 @@ class _Draw(ImageDraw.ImageDraw):
 W, H = 458, 196
 SF_ROUNDED = "/System/Library/Fonts/SFNSRounded.ttf"
 KR = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+EMOJI_FONT = "/System/Library/Fonts/Apple Color Emoji.ttc"
+if os.name == "nt":
+    _fonts = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts")
+    SF_ROUNDED = os.path.join(_fonts, "segoeuib.ttf")
+    KR = os.path.join(_fonts, "malgun.ttf")
+    EMOJI_FONT = os.path.join(_fonts, "seguiemj.ttf")
 WEEKDAYS = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
 
 
@@ -36,7 +43,7 @@ def _sf(size: int, weight: bytes = b"Semibold") -> ImageFont.FreeTypeFont:
 
 def _kr(size: int, index: int) -> ImageFont.FreeTypeFont:
     # index: 0 Regular, 2 Medium, 4 SemiBold, 6 Bold, 8 Light
-    return ImageFont.truetype(KR, size, index=index)
+    return ImageFont.truetype(KR, size, index=0 if os.name == "nt" else index)
 
 
 def render_clock(now: datetime | None = None, status: list[tuple[str, str]] | None = None) -> bytes:

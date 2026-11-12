@@ -2,6 +2,7 @@
 
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import unittest
@@ -123,6 +124,7 @@ class TransportTests(unittest.TestCase):
             self.assertIsNone(agy.agy_quota())
 
 
+@unittest.skipIf(os.name == 'nt', 'Remote macOS script fixtures require POSIX executables')
 class RemoteScriptTests(unittest.TestCase):
     """REMOTE 스크립트를 가짜 agy 실행 파일로 돌려 본다 (네트워크·실제 agy 없이)."""
 

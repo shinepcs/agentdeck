@@ -256,7 +256,8 @@ def grouped(ps: list[Parcel]) -> list[Parcel]:
 
 def open_tracking(p: Parcel) -> None:
     url = ALI_TRACK_URL.format(id=p.order_no) if p.order_no else TRACK_URL.format(no=p.tracking)
-    subprocess.Popen(["open", url])
+    import webbrowser
+    webbrowser.open(url)
 
 
 # ---------- 그리기 ----------

@@ -2,3 +2,4 @@ hidapi>=0.14
 Pillow>=10.0
 certifi>=2024.0
 websockets>=13
+psutil>=6; sys_platform == "win32"

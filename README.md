@@ -1,3 +1,6 @@
+> 이 포크는 **Windows + Mirabox HSV293S (`6603:1014`)** 실행을 추가합니다.
+> 설치·실행·지원 범위: **[Windows/Mirabox 가이드](docs/WINDOWS-MIRABOX.md)**.
+
 <div align="center">
 
 <img src="docs/images/banner.png" alt="agentdeck" width="100%">

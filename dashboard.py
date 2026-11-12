@@ -123,7 +123,11 @@ class LoggingPool(ThreadPoolExecutor):
 
 class Dashboard:
     def __init__(self) -> None:
-        self.deck = D200()
+        if CFG.get('device') == 'mirabox':
+            from mirabox import Mirabox
+            self.deck = Mirabox()
+        else:
+            self.deck = D200()
         self.deck.on_event = self.on_event
         self.pool = LoggingPool(max_workers=8)
         self.page = 1
@@ -523,6 +527,8 @@ class Dashboard:
             self.render()
 
     def open_device(self, idx: int) -> None:
+        if not 0 <= idx < len(MACHINES):
+            return
         self.device_idx, self.page, self.dev_armed = idx, DEV_PAGE, None
         self.render()
         self.pool.submit(self.refresh_device)
@@ -930,7 +936,7 @@ class Dashboard:
         self.deck.start()
         self.deck.set_brightness(self.brightness)
         self.deck.set_small_window(mode=SMALL_BACKGROUND)  # 넓은 칸 = 커스텀 시계 이미지
-        print(t("D200 대시보드 시작 (Ctrl+C 로 종료)", "D200 dashboard started (Ctrl+C to quit)"), flush=True)
+        print(f"{type(self.deck).__name__} dashboard started (Ctrl+C to quit)", flush=True)
         updater.start_background()
         self.play_intro()
         while not self.stop.is_set() and not self.deck.disconnected.is_set():

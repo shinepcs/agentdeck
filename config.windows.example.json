@@ -1,0 +1,14 @@
+{
+  "device": "mirabox",
+  "ui_lang": "ko",
+  "agent_source": "hooks",
+  "hooks": {"hosts": [null]},
+  "machines": [{"name": "This PC", "ssh": null, "mole": false}],
+  "screensaver_min": 0,
+  "sound": {"enabled": false},
+  "studio": {"enabled": false},
+  "agy": {"enabled": false},
+  "parcels": {"enabled": false},
+  "flow": {"enabled": false},
+  "higgsfield": {"enabled": false}
+}
