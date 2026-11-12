@@ -787,6 +787,16 @@ class Dashboard:
         self.studio = apply_ack(raw, self.acked)
 
     # ---- 화면 ----
+    def render_side_strip(self) -> None:
+        if CFG.get('device') != 'mirabox':
+            return
+        from mirabox_strip import render_side_strip
+
+        try:
+            self.deck.set_side_strip(render_side_strip(self.studio, self.llms))
+        except Exception as e:
+            print(f"{datetime.now():%H:%M:%S} side strip render error: {e}", flush=True)
+
     def clock_status(self) -> list[tuple[str, str]]:
         """시계 하단 칩: 스튜디오 작업/확인 수 + 지금 여유 있는 LLM."""
         chips: list[tuple[str, str]] = []
@@ -939,9 +949,11 @@ class Dashboard:
         self.deck.set_small_window(mode=SMALL_BACKGROUND)  # 넓은 칸 = 커스텀 시계 이미지
         print(f"{type(self.deck).__name__} dashboard started (Ctrl+C to quit)", flush=True)
         updater.start_background()
+        self.render_side_strip()
         self.play_intro()
         while not self.stop.is_set() and not self.deck.disconnected.is_set():
             self.fetch()
+            self.render_side_strip()
             self.render()
             # 1초 단위: 끊김 감지, 결정 필요 칸 깜빡임, 스튜디오 5초 폴링, 분 바뀌면 시계 갱신
             for sec in range(REFRESH_SEC):
@@ -963,6 +975,7 @@ class Dashboard:
                     self.blink_on, dirty = not self.blink_on, True
                 elif self.blink_on:
                     self.blink_on, dirty = False, True
+                self.render_side_strip()
                 # 화면보호기: 오래 입력이 없으면 어항, 알림이 생기면 빠져나오기
                 alert = self.studio.attention or self.studio.done or self.pomo.state == "done"
                 if self.page == AQUA_PAGE:

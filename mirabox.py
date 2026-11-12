@@ -1,7 +1,8 @@
 """Mirabox HSV293S (6603:1014), using the existing dashboard's 13-key layout.
 
-Protocol/key map: bitfocus/companion-surface-mirabox-stream-dock (MIT),
-src/streamdock.ts and src/models/HSV-293S.ts. No firmware changes.
+Protocol/key map: bitfocus/companion-surface-mirabox-stream-dock (MIT).
+Native dimensions: MiraboxSpace/StreamDock-Device-SDK, StreamDock293sV3.
+No firmware changes.
 """
 from __future__ import annotations
 
@@ -16,6 +17,10 @@ from mirabox_render import render_icon
 
 VID, PID = 0x6603, 0x1014
 KEYS = (13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3)
+STRIP_KEYS = (0x10, 0x11, 0x12)
+NATIVE_TILE = 96
+# Transport packing only; the three regions are physically separated on the device.
+STRIP_SIZE = (NATIVE_TILE, NATIVE_TILE * 3)
 PREFIX = b'CRT\0\0'
 
 
@@ -57,6 +62,10 @@ class Mirabox(D200):
         # This model has individual keys; set_buttons draws the wide panel below.
         pass
 
+    def clear_display(self) -> None:
+        self._write([command(b'CLE\0\0\0\xff'), command(b'STP')])
+        self._images.clear()
+
     def set_buttons(self, buttons: dict[int, Button], partial=False, small_png=None) -> None:
         images = {index: render_icon(button) for index, button in buttons.items() if 0 <= index < 15}
         if small_png:
@@ -67,13 +76,27 @@ class Mirabox(D200):
                     buffer = io.BytesIO()
                     panel.crop((left, 0, left + 100, 100)).save(buffer, 'PNG')
                     images[index] = buffer.getvalue()
+        self._set_images({KEYS[index]: png for index, png in images.items()})
+
+    def set_side_strip(self, png: bytes) -> None:
+        images = {}
+        with Image.open(io.BytesIO(png)) as image:
+            if image.size != STRIP_SIZE:
+                raise ValueError('Mirabox side strip must be 96x288 pixels')
+            for row, key in enumerate(STRIP_KEYS):
+                buffer = io.BytesIO()
+                image.crop((0, row * NATIVE_TILE, NATIVE_TILE, (row + 1) * NATIVE_TILE)).save(buffer, 'PNG')
+                images[key] = buffer.getvalue()
+        self._set_images(images)
+
+    def _set_images(self, images: dict[int, bytes]) -> None:
         packets = []
         changed = {}
         for index, png in images.items():
             if self._images.get(index) == png:
                 continue
             with Image.open(io.BytesIO(png)) as image:
-                image = image.convert('RGB').resize((100, 100), Image.Resampling.LANCZOS)
+                image = image.convert('RGB').resize((NATIVE_TILE, NATIVE_TILE), Image.Resampling.LANCZOS)
                 image = image.transpose(Image.Transpose.ROTATE_90)
                 for quality in range(90, 10, -10):
                     buffer = io.BytesIO()
@@ -83,7 +106,7 @@ class Mirabox(D200):
                         break
                 else:
                     raise ValueError('Mirabox image exceeds 10 KiB')
-            packets.append(command(b'BAT' + len(jpeg).to_bytes(4, 'big') + bytes((KEYS[index],))))
+            packets.append(command(b'BAT' + len(jpeg).to_bytes(4, 'big') + bytes((index,))))
             packets.extend(jpeg[offset:offset + PACKET].ljust(PACKET, b'\0')
                            for offset in range(0, len(jpeg), PACKET))
             changed[index] = png
@@ -108,4 +131,5 @@ class Mirabox(D200):
 
     def start(self) -> None:
         self._write([command(b'DIS'), command(b'CONNECT')])
+        self.clear_display()
         super().start()
