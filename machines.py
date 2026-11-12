@@ -78,7 +78,7 @@ def _probe(name: str, target: str | None) -> MachineStat:
     cmd = ["bash", "-s"] if target is None else \
         ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", target, "bash", "-s"]
     try:
-        r = subprocess.run(cmd, input=PROBE, capture_output=True, text=True, timeout=25)
+        r = subprocess.run(cmd, input=PROBE.encode('utf-8'), capture_output=True, timeout=25)
         d = json.loads(r.stdout.strip().splitlines()[-1])
     except Exception:
         return MachineStat(name, False)

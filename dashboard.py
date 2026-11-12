@@ -72,7 +72,8 @@ REPEAT_WINDOW = 30  # 같은 칸 반복 누름으로 보는 시간(초)
 
 def signature(s: StudioState) -> tuple:
     """화면에 영향을 주는 스튜디오 상태 요약 (바뀌었을 때만 다시 그리기)."""
-    return (s.online, tuple((w.name, w.working, w.attention, w.done, w.idle) for w in s.workspaces))
+    return (s.online, tuple((w.name, w.working, w.attention, w.done, w.idle,
+                            tuple(w.attention_terms), tuple(w.done_terms)) for w in s.workspaces))
 
 
 def collect_llms(pool: ThreadPoolExecutor) -> list[LLM]:

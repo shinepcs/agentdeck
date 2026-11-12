@@ -3,7 +3,7 @@
 Herdr 없이도 VS Code·Cursor·iTerm·Ghostty·터미널 등 어디서 도는 Claude Code / Codex 세션을 볼 수 있다.
   - 이 맥: ~/.cache/d200/agents/*.json
   - 원격 맥(config hooks.hosts): SSH 로 같은 폴더를 읽는다
-  - 프로세스가 끝난 세션(pid 없음)과 하루 넘게 갱신 없는 세션은 정리한다
+  - 완료·오류는 하루 동안 유지하고, 나머지는 프로세스가 끝나면 정리한다
 눌렀을 때 이동: 그 세션이 도는 앱(iTerm·Terminal 은 해당 탭, VS Code·Cursor 는 프로젝트 창, 그 외는 앱 활성화)
 """
 
@@ -20,7 +20,7 @@ from remote_herdr import StudioState, Workspace
 AGENTS_DIR = "~/.cache/d200/agents"
 STALE_SEC = 24 * 3600
 
-# 원격(또는 로컬)에서 실행: 살아 있는 세션만 JSON 목록으로 출력, 죽은 세션 파일은 삭제
+# 원격(또는 로컬)에서 실행: 짧은 작업도 폴링 전에 완료 알림이 사라지지 않게 유지
 SCAN = r'''
 import glob, json, os, time
 if os.name == "nt":
@@ -33,13 +33,16 @@ for p in glob.glob(os.path.expanduser("%s/*.json")):
         alive = True
         try:
             pid = int(d.get("pid") or 0)
-            if os.name == "nt":
-                alive = pid > 0 and psutil.pid_exists(pid)
+            if pid <= 0:
+                alive = False
+            elif os.name == "nt":
+                alive = psutil.pid_exists(pid)
             else:
                 os.kill(pid, 0)
         except Exception:
             alive = False
-        if not alive or time.time() - d.get("updated", 0) > %d:
+        finished = d.get("status") in ("done", "error")
+        if (not alive and not finished) or time.time() - d.get("updated", 0) > %d:
             os.remove(p)
             continue
         out.append(d)
@@ -77,6 +80,8 @@ def state(hosts: list[str | None]) -> StudioState:
             name = f"{name} · {d.get('host', d['_ssh'])}"
         ws = groups.setdefault(name, Workspace(name, space_id=None))
         term = f"{d.get('_ssh') or 'local'}:{d['id']}"
+        if d.get('status') in ('done', 'error', 'blocked'):
+            term += f":{d.get('updated', 0)}"  # A later turn in the same session needs a fresh alert.
         _sessions[term] = d
         ws.add(term, d.get("agent"), d.get("status"), bool(d.get("top", True)))
     # 알림·작업 중인 프로젝트를 앞쪽에 (같은 상태면 이름순)

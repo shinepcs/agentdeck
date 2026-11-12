@@ -12,7 +12,7 @@ Claude Code (~/.claude/settings.json 의 hooks, stdin 으로 JSON 이 들어온�
     Notification(권한 관련)       → blocked
     Stop                         → done (완료, 아직 안 봄)
     StopFailure                  → error
-    SessionEnd                   → 파일 삭제
+    SessionEnd                   → 완료·오류 알림을 제외하고 파일 삭제
 
 Codex (~/.codex/config.toml 의 notify, 마지막 인자로 JSON 이 들어온다)
   notify = ["python3", "/path/agent_hook.py", "codex", "--", <기존 notify 명령...>]
@@ -122,8 +122,12 @@ def claude() -> None:
     ev = d.get("hook_event_name", "")
     session = d.get("session_id") or "unknown"
     if ev == "SessionEnd":
+        path = os.path.join(DIR, f"claude-code-{session}.json")
         try:
-            os.remove(os.path.join(DIR, f"claude-code-{session}.json"))
+            with open(path, encoding='utf-8') as fp:
+                if json.load(fp).get('status') in ('done', 'error'):
+                    return
+            os.remove(path)
         except FileNotFoundError:
             pass
         return
@@ -161,6 +165,7 @@ def codex(argv: list[str]) -> None:
 
 
 if __name__ == "__main__":
+    sys.stdin.reconfigure(encoding='utf-8')
     try:
         if len(sys.argv) > 1 and sys.argv[1] == "claude":
             claude()

@@ -14,6 +14,20 @@ spec.loader.exec_module(installer)
 
 
 class HookInstallTests(unittest.TestCase):
+    def test_existing_statusline_restored_after_reinstall_and_uninstall(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'settings.json'
+            original = {'statusLine': {'type': 'command', 'command': 'existing-tool --flag "x y"', 'padding': 2}}
+            path.write_text(json.dumps(original), encoding='utf-8')
+            with patch.object(installer, 'CLAUDE_SETTINGS', str(path)):
+                installer.claude(True)
+                once = json.loads(path.read_text(encoding='utf-8'))
+                self.assertIn('statusline_hook.py', once['statusLine']['command'])
+                installer.claude(True)
+                self.assertEqual(json.loads(path.read_text(encoding='utf-8')), once)
+                installer.claude(False)
+                self.assertEqual(json.loads(path.read_text(encoding='utf-8')), original)
+
     def test_codex_preserves_existing_notify_and_following_section(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'config.toml'

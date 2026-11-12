@@ -167,7 +167,8 @@ def claude_usage(now: datetime | None = None) -> ClaudeUsage:
 
     # statusline 스냅샷(있으면)에서 공식 한도 사용률
     try:
-        snap = json.load(open(CLAUDE_STATUS))
+        with open(CLAUDE_STATUS, encoding='utf-8') as fp:
+            snap = json.load(fp)
         rl = snap.get("rate_limits") or {}
         u.five_hour = _window(rl.get("five_hour"), "used_percentage", "resets_at")
         u.seven_day = _window(rl.get("seven_day"), "used_percentage", "resets_at")

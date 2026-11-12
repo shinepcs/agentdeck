@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import base64
 import os
 import re
 import shutil
@@ -24,6 +25,7 @@ from i18n import t  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(ROOT, "hooks", "agent_hook.py")
+STATUS_HOOK = os.path.join(ROOT, 'hooks', 'statusline_hook.py')
 PYTHON = sys.executable if os.name == 'nt' else 'python3'
 CLAUDE_CMD = f'"{PYTHON}" "{HOOK}" claude'
 CLAUDE_SETTINGS = os.path.expanduser("~/.claude/settings.json")
@@ -48,6 +50,17 @@ def is_ours(entry: dict) -> bool:
 
 def claude(install: bool) -> None:
     data = json.loads(Path(CLAUDE_SETTINGS).read_text(encoding='utf-8')) if os.path.exists(CLAUDE_SETTINGS) else {}
+    previous = data.get('statusLine')
+    if previous and 'statusline_hook.py' in previous.get('command', ''):
+        previous = json.loads(base64.b64decode(previous['command'].rsplit(' ', 1)[-1]))
+    if install:
+        encoded = base64.b64encode(json.dumps(previous).encode('utf-8')).decode('ascii')
+        data['statusLine'] = {**(previous or {}), 'type': 'command',
+                              'command': f'"{PYTHON}" "{STATUS_HOOK}" {encoded}'}
+    elif previous is not None:
+        data['statusLine'] = previous
+    else:
+        data.pop('statusLine', None)
     hooks = data.setdefault("hooks", {})
     for ev, matcher in EVENTS.items():
         arr = [e for e in hooks.get(ev, []) if not is_ours(e)]  # 우리 것 제거 (재설치 시 중복 방지)
@@ -60,6 +73,8 @@ def claude(install: bool) -> None:
             hooks[ev] = arr
         else:
             hooks.pop(ev, None)
+    if not hooks:
+        data.pop('hooks', None)
     backup(CLAUDE_SETTINGS)
     os.makedirs(os.path.dirname(CLAUDE_SETTINGS), exist_ok=True)
     with open(CLAUDE_SETTINGS, "w", encoding='utf-8') as fp:
