@@ -91,6 +91,35 @@ class ParseTests(unittest.TestCase):
 
 
 class TransportTests(unittest.TestCase):
+    @patch.object(agy, "HOST", "local")
+    @patch.object(agy.subprocess, "run")
+    def test_local_reads_installed_cli_without_ssh(self, run):
+        run.side_effect = [subprocess.CompletedProcess([], 0, "1.5.5\n"),
+                           subprocess.CompletedProcess([], 0, json.dumps(FIXTURE))]
+        self.assertEqual(len(agy.agy_quota()), 3)
+        version, usage = run.call_args_list
+        self.assertEqual(version.args[0][1:], ["--version"])
+        self.assertEqual(usage.args[0][1:], ["-p", "/usage", "--output-format", "json"])
+        self.assertNotIn("ssh", usage.args[0])
+        self.assertEqual(usage.kwargs["stdin"], subprocess.DEVNULL)
+
+    @patch.object(agy, "HOST", "local")
+    @patch.object(agy.subprocess, "run")
+    def test_local_old_or_unknown_version_never_runs_usage(self, run):
+        for version in ("1.1.10", "unknown", "1.5.5-preview"):
+            run.reset_mock()
+            run.return_value = subprocess.CompletedProcess([], 0, version)
+            self.assertIsNone(agy.agy_quota())
+            self.assertEqual(run.call_count, 1)
+
+    @patch.object(agy, "HOST", "local")
+    @patch.object(agy.subprocess, "run")
+    def test_local_authentication_timeout_marks_login_needed(self, run):
+        run.side_effect = [subprocess.CompletedProcess([], 0, "1.5.5"),
+                           subprocess.TimeoutExpired("agy", 15, output=b"Authentication required")]
+        self.assertIsNone(agy.agy_quota())
+        self.assertTrue(agy.login_needed)
+
     @patch.object(agy, "HOST", None)
     @patch.object(agy.subprocess, "run")
     def test_disabled_does_not_connect(self, run):
@@ -180,6 +209,13 @@ touch "$HOME/usage-called"
 
 
 class LoginStateTest(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Windows console login")
+    def test_local_login_opens_cli_in_a_console(self):
+        with patch.object(agy, "HOST", "local"), patch.object(agy.subprocess, "Popen") as popen:
+            self.assertTrue(agy.open_login())
+            self.assertEqual(popen.call_args.args[0], [agy.local_cli()])
+            self.assertEqual(popen.call_args.kwargs["creationflags"], subprocess.CREATE_NEW_CONSOLE)
+
     def test_login_exit_code_sets_flag_and_other_errors_clear_it(self):
         import subprocess
         from unittest.mock import patch

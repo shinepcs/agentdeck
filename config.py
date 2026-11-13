@@ -42,6 +42,6 @@ AGENT_SOURCE: str = CFG.get("agent_source", "herdr" if STUDIO_ENABLED else "hook
 # 훅 상태를 읽을 컴퓨터: null = 이 맥, 그 외 ssh 대상
 HOOK_HOSTS: list[str | None] = (CFG.get("hooks") or {}).get("hosts", [None])
 
-# agy(Antigravity CLI) 할당량: 이 CLI 를 쓰는 컴퓨터의 ssh 대상
+# agy(Antigravity CLI) 할당량: SSH 대상 또는 이 PC는 "local"
 AGY: dict = CFG.get("agy") or {}
 AGY_HOST: str | None = AGY.get("host") if AGY.get("enabled") else None

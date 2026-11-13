@@ -76,6 +76,10 @@ Windows의 맑은 고딕·Segoe 글꼴, 로컬 CPU/메모리/디스크 상태,
 - Claude 알림은 **Claude Code 훅**에서 수집합니다. Claude 데스크톱의 일반 Chat이나
   웹 채팅은 이 훅을 발생시키지 않으므로 이 연결만으로 완료 알림이 들어오지 않습니다.
 - Codex 실시간 한도는 원본의 내부 API를 사용하며 실패하면 로컬 로그 값으로 대체합니다.
+- Antigravity 한도는 `config.json`의 `"agy": {"enabled": true, "host": "local"}`로 연결합니다.
+  로그인된 공식 `agy` CLI 1.1.11 이상이 필요하며, PATH 또는 `~/.gemini/bin/agy.exe`에서 찾습니다.
+  읽기 전용 `/usage`로 모델 그룹 중 가장 적게 남은 5시간·주간 한도를 AGY 칸에 표시합니다.
+  인증이 풀리면 AGY 칸을 길게 눌러 CLI 로그인 창을 열 수 있습니다.
 - Windows에서는 기기 내 업데이트 후 자동 재시작을 보장하지 않습니다. 변경 후 종료·시작 바로가기로 다시 실행하세요.
 
 ## 로컬 네트워크의 Mac
